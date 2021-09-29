@@ -1,0 +1,8 @@
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
+Initialized numpy random and tensorflow random seed at 42
