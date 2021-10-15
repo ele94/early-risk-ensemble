@@ -1,0 +1,2 @@
+commit hash,timestamp,cnn_model,oversample,feat_window_size,normalize,discretize,exclude_feats,eval_window_size,max_len,batch_size,precision,recall,F1,ERDE_5,ERDE_50,median_latency_tps,median_penalty_tps,speed,latency_weighted_f1
+4b78e32,15/10/2021 14:49:48,True,False,20,False,False,[],100,1000,128,0.15384615384615385,0.019230769230769232,0.03418803418803419,0.24989034150787548,0.2475240432186275,180.5,0.5073629839659779,0.4926370160340221,0.016842291146462296
