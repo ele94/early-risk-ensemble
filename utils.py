@@ -30,3 +30,10 @@ def load_pickle(filepath, filename):
     with open(file, 'rb') as data_file:
         data = pickle.load(data_file)
     return data
+
+def write_loading_bar(n, i):
+    j = (i + 1) / n
+    sys.stdout.write('\r')
+    # the exact output you're looking for:
+    sys.stdout.write("[%-20s] %d%%" % ('='*int(20*j), 100*j))
+    sys.stdout.flush()

@@ -1,62 +1,80 @@
-from utils import eval_performance
 import csv
 import os
-from utils import load_pickle
-import filenames as fp
 
 import numpy as np
-from utils import load_parameters
 from utils import *
 from datetime import datetime
-import subprocess
+from scipy import stats
+from sklearn.utils.extmath import weighted_mode
 
 train_g_truth_file = "/datos/erisk/deep-learning/data/erisk2021_training_data/golden_truth.txt"
 test_g_truth_file = "/datos/erisk/deep-learning/data/erisk2021_test_data/golden_truth.txt"
+pickle_path = "pickles"
+
+def ensemble_vote(y_preds, weights=None):
+    
+    if weights is None:
+        mode, count = stats.mode(y_preds)
+    else:
+        weights_arrays = []
+        for i, weight in enumerate(weights):
+            weights_array = np.ones(len(y_preds[i])) * weight
+            weights_arrays.append(weights_array)
+
+        mode, count = weighted_mode(y_preds, weights_arrays)
+        
+    return mode
+    
 
 
-def evaluate(feats_window_size=10, window_size=100):
+def evaluate(decision_window_size=1, feat_window_size=10, params={}, y_pred=None, test_users=None, save=True, resuls_file=None):
     
     g_truth = load_golden_truth(test_g_truth_file, test_collection=True)
 
-    test_resuls = load_pickle(pickle_path, fp.resul_file)
-    test_scores = load_pickle(pickle_path, fp.score_file)
-    
-    X_test = load_pickle(pickle_path, "X_test.pkl")
+    if y_pred is None or test_users is None:
+        test_resuls = load_pickle(pickle_path, "y_pred.pkl")
+        X_test = load_pickle(pickle_path, "test_users.pkl")
+    else:
+        test_resuls = y_pred
+        X_test = test_users
 
     user_resul = prepare_data(X_test, test_resuls)
-    user_scores = prepare_data(X_test, test_scores)
+    user_scores = user_resul
 
-    test_resul_proc = process_decisions_w2(user_resul, user_scores, feats_window_size, max_strategy=window_size)
+    test_resul_proc = process_decisions_w1(user_resul, user_scores, feat_window_size, max_strategy=decision_window_size)
     eval_resuls = eval_performance(test_resul_proc, g_truth)
 
     logger(eval_resuls)
+    if save:
+        write_csv(eval_resuls, params, resuls_file)
     return eval_resuls
 
 
 
 
 
-def write_csv(eval_resuls):
+def write_csv(eval_resuls, params, filename=None):
 
     data = {}
-    data["commit hash"] = subprocess.check_output(["git", "describe", "--always"]).strip().decode()
+    #data["commit hash"] = subprocess.check_output(["git", "describe", "--always"]).strip().decode()
 
     now = datetime.now()
     dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
     data["timestamp"] = dt_string
 
-
-    params = load_parameters()
     data.update(params)
     data.update(eval_resuls)
 
-    erisk_eval_file = os.path.join(fp.resuls_path, fp.erisk_eval_filename)
+    if filename is None:
+        filename = "eval_resuls.csv"
+    erisk_eval_file = os.path.join("resuls", filename)
     csv_file = erisk_eval_file
 
     csv_columns = data.keys()
     dict_data = [data]
 
     try:
+        logger("Writing results to CSV file")
         with open(csv_file, 'a') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             if os.path.getsize(csv_file) == 0:
@@ -64,10 +82,12 @@ def write_csv(eval_resuls):
             for data in dict_data:
                 writer.writerow(data)
     except IOError:
-        print("I/O error")
+        logger("I/O error while writing results to CSV file")
+    except Exception as e:
+        logger("Exception while writing results to CSV file: {}".format(e))
 
-    csv_columns = eval_resuls.keys()
-    dict_data = [eval_resuls]
+    #csv_columns = eval_resuls.keys()
+    #dict_data = [eval_resuls]
 
 
 
@@ -76,6 +96,7 @@ def write_csv(eval_resuls):
 def prepare_data(test_x, resul_array):
 
     test_users = np.array(test_x[["user"]]).flatten()
+    resul_array = resul_array.flatten()
     resul_array = resul_array.tolist()
     test_users = test_users.tolist()
 
@@ -85,6 +106,8 @@ def prepare_data(test_x, resul_array):
     return user_dict
 
 
+def flatten(t):
+    return [item for sublist in t for item in sublist]
 
 def array_to_dict(l):
     d = dict()
@@ -92,11 +115,11 @@ def array_to_dict(l):
      else d.update({t[0]: [t[1]]}) for t in l]
     return d
 
-def process_decisions_w2(user_decisions, user_scores, feats_window_size, max_strategy=5):
+def process_decisions_w2(user_decisions, user_scores, max_strategy=5):
     decision_list = []
     new_user_decisions = {}
     new_user_sequence = {}
-    max = max_strategy
+    max_s = max_strategy
 
     for user, decisions in user_decisions.items():
         new_user_decisions[user] = []
@@ -107,17 +130,22 @@ def process_decisions_w2(user_decisions, user_scores, feats_window_size, max_str
     for user, decisions in user_decisions.items():
         count = 0
         for i in range(0, len(decisions)):
-            if decisions[i] == 0 and count < max:
-                count = 0
-                new_user_decisions[user].append(0)
-                new_user_sequence[user].append(i)
-            elif decisions[i] == 1 and count < max:
-                count = count + 1
-                new_user_decisions[user].append(0)
-                new_user_sequence[user].append(i)
-            elif count >= max:
-                new_user_decisions[user].append(1)
-                new_user_sequence[user].append(new_user_sequence[user][i - 1])
+            if decisions[i] == 0:
+                if count < max_s:
+                    count = 0
+                    new_user_decisions[user].append(0)
+                    new_user_sequence[user].append(i)
+                else:
+                    new_user_decisions[user].append(1)
+                    new_user_sequence[user].append(new_user_sequence[user][-1])
+            elif decisions[i] == 1:
+                count += 1
+                if count >= max_s:
+                    new_user_decisions[user].append(1)
+                    new_user_sequence[user].append(new_user_sequence[user][-1])
+                else:
+                    new_user_decisions[user].append(0)
+                    new_user_sequence[user].append(i)
 
     # lo montamos en el formato que acepta el evaluador
     for user, decisions in new_user_decisions.items():
@@ -132,7 +160,7 @@ def process_decisions_w1(user_decisions, user_scores, feat_window_size, max_stra
     decision_list = []
     new_user_decisions = {}
     new_user_sequence = {}
-    max = max_strategy
+    max_s = max_strategy
 
     for user, decisions in user_decisions.items():
         new_user_decisions[user] = []
@@ -143,17 +171,21 @@ def process_decisions_w1(user_decisions, user_scores, feat_window_size, max_stra
     for user, decisions in user_decisions.items():
         count = 0
         for i in range(0, len(decisions)):
-            if decisions[i] == 0 and count < max:
+            if decisions[i] == 0 and count < max_s:
                 count = 0
                 new_user_decisions[user].append(0)
                 new_user_sequence[user].append(i+feat_window_size)
-            elif decisions[i] == 1 and count < max:
-                count = count +1
-                new_user_decisions[user].append(0)
-                new_user_sequence[user].append(i+feat_window_size)
-            elif count >= max:
-                new_user_decisions[user].append(1)
-                new_user_sequence[user].append(new_user_sequence[user][i-1])
+            else:
+                count += 1
+                if count < max_s:
+                    new_user_decisions[user].append(0)
+                    new_user_sequence[user].append(i+feat_window_size)
+                elif count == max_s:
+                    new_user_decisions[user].append(1)
+                    new_user_sequence[user].append(i+feat_window_size)
+                else:
+                    new_user_decisions[user].append(1)
+                    new_user_sequence[user].append(new_user_sequence[user][-1])
 
     # lo montamos en el formato que acepta el evaluador
     for user, decisions in new_user_decisions.items():
@@ -163,10 +195,15 @@ def process_decisions_w1(user_decisions, user_scores, feat_window_size, max_stra
 
     return decision_list
 
-def load_golden_truth(filename):
-    g_path = filename
+def load_golden_truth(g_path, test_collection=False):
     g_truth = {line.split()[0]: int(line.split()[1]) for line in open(g_path)}
-    return g_truth
+    if test_collection:
+        new_g_truth = {}
+        for user, truth in g_truth.items():
+            new_g_truth["test"+user] = truth
+    else:
+        new_g_truth = g_truth.copy()
+    return new_g_truth
 
 if __name__ == '__main__':
     main()
