@@ -34,6 +34,7 @@ class Experiment():
             self.name = name
     
     def prepare_data(self, params):
+        logger("PREPARING DATA FOR PARAMS {}".format(params))
         self.train_users, self.y_train, self.test_users, self.y_test, self.train_samples, self.X_train, self.X_test = windowfy(window_size=params["feat_window_size"], max_size=params["max_size"], sample_weights_size=params["sample_weights_size"], is_oversample=params["oversample"], include_new_data=params["include_new_data"])
         self.feats_train, self.feats_test = featurize(calculate_feats=True, 
                                             include_feats=params["include_feats"],
@@ -50,11 +51,13 @@ class Experiment():
         self.feats_train_comb = self.feats_train_comb.toarray()
         self.feats_test_comb = self.feats_test_comb.toarray() 
         
-    def train_and_evaluate_model(self, params, weights=None):
+    def train_and_evaluate_model(self, params, weights_combinations=None):
         self.y_preds = {}
+        params["weights"] = None
         for model_name in self.models:
             params["model"] = model_name
             if model_name in trad_model_names:
+                logger("TRAINING AND EVALUATING TRADITIONAL MODEL {}".format(model_name))
                 y_pred, classifier = train_and_evaluate(self.feats_train_comb, self.y_train, self.feats_test_comb, self.y_test, self.train_samples, classifier_name=model_name, strategy="weights")
                 t = time.process_time()
                 logger("Evaluating after getting time {}".format(t))
@@ -62,6 +65,7 @@ class Experiment():
                 elapsed_time = time.process_time() - t
                 logger("Evaluated with elapsed time {}".format(elapsed_time))
             else:
+                logger("TRAINING AND EVALUATING DL MODEL {}".format(model_name))
                 y_pred = self.iterate_dl_model(params)
                 logger("Evaluating for elapsed time")
                 elapsed_time = evaluate_dl_time(model_name=params["model"], maxlen=params["maxlen"], epochs=params["epochs"],
@@ -71,6 +75,7 @@ class Experiment():
                               X_train=self.X_train, X_test=self.X_test, y_train=self.y_train, y_test=self.y_test, 
                               train_sample_weights=self.train_samples, name=self.name)
                 logger("Evaluated with elapsed time {}".format(elapsed_time))
+            logger("EVALUATING FOR WINDOW SIZES 1, 2 AND 3 MODEL {}".format(model_name))
             params["eval_time"] = elapsed_time
             params["eval_window_size"] = 1
             eval_resul = evaluate(1, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)
@@ -82,27 +87,32 @@ class Experiment():
             self.y_preds[model_name] = y_pred
 
         for ensemble_ver in self.ensemble_combinations:
-            ensemble_preds = [self.y_preds[model_name] for model_name in ensemble_ver]
-            ensemble_preds = np.array(ensemble_preds)
-            y_pred = ensemble_vote(ensemble_preds, weights)
+            if weights_combinations is None:
+                weights_combinations = [[1,1,1]]
             
-            params["model"] = ensemble_ver
-            
-            params["eval_window_size"] = 1
-            eval_resul = evaluate(1, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)
-            params["eval_window_size"] = 2
-            eval_resul = evaluate(2, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)
-            params["eval_window_size"] = 3
-            eval_resul = evaluate(3, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)   
+            for weights in weights_combinations:
+                logger("EVALUATING ENSEMBLE {} with weights {}".format(ensemble_ver, weights))
+                ensemble_preds = [self.y_preds[model_name] for model_name in ensemble_ver]
+                ensemble_preds = np.array(ensemble_preds)
+                y_pred = ensemble_vote(ensemble_preds, weights)
+
+                params["model"] = ensemble_ver
+                params["weights"] = weights
+
+                logger("EVALUATING ENSEMBLE {} WITH WEIGHTS {} FOR WINDOW SIZES 1, 2 AND 3".format(ensemble_ver, weights))
+                params["eval_window_size"] = 1
+                eval_resul = evaluate(1, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)
+                params["eval_window_size"] = 2
+                eval_resul = evaluate(2, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)
+                params["eval_window_size"] = 3
+                eval_resul = evaluate(3, 10, params, y_pred=y_pred, test_users=self.test_users, resuls_file=self.eval_filename)   
     
     
     def iterate_dl_model(self, params):
     
         model_resuls = {}
-        if "lstm_model" in params["model"]:
-            iterations = 1
-        else:
-            iterations = 5
+        iterations = params["iterations"]
+        logger("STARTING ITERATION FOR DL MODEL {} FOR {} ITERATIONS".format(params["model"], params["iterations"]))
         for i in range(0, iterations):
             y_pred = do_train(model_name=params["model"], maxlen=params["maxlen"], epochs=params["epochs"],
                               batch_size=params["batch_size"],

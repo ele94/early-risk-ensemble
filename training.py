@@ -38,7 +38,7 @@ import time
 
 def do_train(model_name="cnn_model", maxlen=50000, epochs=1000, early_epochs=10, batch_size=2, shuffle=True, patience=10, model_names=["cnn_model", "lstm_model"], early_stopping=True, validation_split=0.33, 
             feats_train=None, feats_test=None, X_train=None, X_test=None, y_train=None, y_test=None, train_sample_weights=None, save=False, name=None):
-    logger("Starting training deep model")
+    logger("Starting training deep model {}".format(model_name))
     if model_name is "ensemble_model":
         y_pred = do_ensemble(maxlen, batch_size, shuffle, model_names, feats_train, feats_test, X_train, X_test,
                              y_train, y_test, save)
@@ -118,7 +118,7 @@ def train_kfolds(model_name="cnn_model", maxlen=50000, batch_size=2, shuffle=Tru
 
 def train(model_name="cnn_model", maxlen=50000, epochs=100, early_epochs=10, batch_size=2, shuffle=True, patience=10, early_stopping=True, validation_split=0.33, feats_train=None, feats_test=None, X_train=None, X_test=None, y_train=None, y_test=None, train_sample_weights=None, save=False, name=None):
     
-    logger("Starting training with cnn_model={} and maxlen={} and batch size={}".format(model_name, maxlen, batch_size))
+    logger("Starting training with model_name={} and maxlen={} and batch size={}".format(model_name, maxlen, batch_size))
     
     tensorflow.keras.backend.clear_session()
     
