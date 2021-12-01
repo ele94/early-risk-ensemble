@@ -62,10 +62,16 @@ def preprocess():
     test_users = preprocess_data(test_users)
     train_users_new = preprocess_data(train_users_new)
     
+    logger("Joining all data")
+    users = train_users.copy()
+    users.update(test_users)
+    users.update(train_users_new)
+    
     logger("Saving preprocessed data")
     save_pickle("pickles", "raw_train_users.pkl", train_users)
     save_pickle("pickles", "raw_test_users.pkl", test_users)
     save_pickle("pickles", "raw_train_users_new.pkl", train_users_new)
+    save_pickle("pickles", "raw_users.pkl", users)
     
     logger("Finished preprocessing")
     

@@ -15,7 +15,12 @@ test_users_file = "raw_test_users.pkl"
 pickles_dir = "pickles"
 new_train_users_file = "raw_train_users_new.pkl"
 
-def windowfy(window_size=10, sample_weights_size=10, max_size=10000, is_oversample=False, include_new_data=False):
+
+def split_and_windowfy(window_size=10, sample_weights_size=10, max_size=10000, is_oversample=False):
+    pass
+
+
+def windowfy(window_size=10, sample_weights_size=10, max_size=10000, is_oversample=False, include_new_data=False, sampling_strategy=0.8, random_state=42):
     """Obtains the text windows from preprocessed data stored in pickles/raw_train_users.pkl and pickles/raw_test_users.pkl
     
     :param window_size: the number of messages to join in a window
@@ -50,7 +55,7 @@ def windowfy(window_size=10, sample_weights_size=10, max_size=10000, is_oversamp
     
     if is_oversample:
         logger("\nOversampling train users")
-        train_window_frame, y_train = oversample(train_window_frame, y_train)
+        train_window_frame, y_train = oversample(train_window_frame, y_train, sampling_strategy, random_state)
         positive_messages = len([message for message in y_train if message == 1])
         negative_messages = len([message for message in y_train if message == 0])
         print("After oversample: positive messages: {}, negative messages: {}".format(positive_messages, negative_messages))
@@ -70,10 +75,10 @@ def windowfy(window_size=10, sample_weights_size=10, max_size=10000, is_oversamp
 # Helper methods, not to be called from outside of this module
 #----------------------------------------------------------------
 
-def oversample(train_users, y_train):
+def oversample(train_users, y_train, sampling_strategy, random_state):
     """ Obtains oversampled data from train_users and updates y_train accordingly """
     
-    ros = RandomOverSampler(sampling_strategy=0.8, random_state=42)
+    ros = RandomOverSampler(sampling_strategy=sampling_strategy, random_state=random_state)
     X_resampled, y_resampled = ros.fit_resample(train_users, y_train)
     
     return X_resampled, y_resampled

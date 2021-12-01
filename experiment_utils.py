@@ -37,7 +37,7 @@ class Experiment():
     
     def prepare_data(self, params):
         logger("PREPARING DATA FOR PARAMS {}".format(params))
-        self.train_users, self.y_train, self.test_users, self.y_test, self.train_samples, self.X_train, self.X_test = windowfy(window_size=params["feat_window_size"], max_size=params["max_size"], sample_weights_size=params["sample_weights_size"], is_oversample=params["oversample"], include_new_data=params["include_new_data"])
+        self.train_users, self.y_train, self.test_users, self.y_test, self.train_samples, self.X_train, self.X_test = windowfy(window_size=params["feat_window_size"], max_size=params["max_size"], sample_weights_size=params["sample_weights_size"], is_oversample=params["oversample"], include_new_data=params["include_new_data"], sampling_strategy=params["sampling_strategy"], random_state=self.seed)
         self.feats_train, self.feats_test = featurize(calculate_feats=True, 
                                             include_feats=params["include_feats"],
                                             train_users=self.train_users, test_users=self.test_users,
