@@ -9,7 +9,6 @@ from training_traditional import evaluate as evaluate_trad_time
 from eval_erisk import evaluate, ensemble_vote
 from IPython.display import display, Markdown
 from itertools import product
-from numpy.random import seed
 import tensorflow
 import numpy as np
 import time
@@ -24,7 +23,7 @@ def traverse(d):
 
 class Experiment():
     
-    def __init__(self, models, ensemble_combinations, eval_filename, name=None):
+    def __init__(self, models, ensemble_combinations, eval_filename, random_seed=42, name=None):
         self.models = models
         self.ensemble_combinations = ensemble_combinations
         self.eval_filename = eval_filename
@@ -32,6 +31,9 @@ class Experiment():
             self.name = time.process_time()
         else:
             self.name = name
+        self.seed = random_seed
+        self.set_seed(random_seed)
+        
     
     def prepare_data(self, params):
         logger("PREPARING DATA FOR PARAMS {}".format(params))
@@ -124,4 +126,8 @@ class Experiment():
             model_resuls[eval_resul['latency_weighted_f1']] = y_pred.flatten()
 
         return model_resuls[max(model_resuls.keys())]
-
+    
+    def set_seed(self, seed_num):
+        np.random.seed(seed_num)
+        tensorflow.random.set_seed(seed_num)
+        logger("Initialized numpy random and tensorflow random seed at {}".format(seed_num))

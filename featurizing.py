@@ -6,14 +6,9 @@ from utils import *
 import sklearn
 from sklearn.preprocessing import StandardScaler
 import numpy as np
+from sklearn.preprocessing import KBinsDiscretizer
 
-oversample = True
-calculate_feats = True
-normalize = True
-discretize = True
-exclude_feats = []
-discretize_size = 10
-
+nssi_file = "/datos/erisk/ml/data/nssicorpus.txt"
 
 def featurize(calculate_feats=False, normalize=False, discretize=False, scale=False, 
               discretize_size=10, dis_strategy="kmeans", include_feats=[], train_users=None, test_users=None, save=False):
@@ -21,15 +16,6 @@ def featurize(calculate_feats=False, normalize=False, discretize=False, scale=Fa
     nssi_corpus = load_nssi_corpus()
     
     logger("Featurizing calculate_feats={}, normalize={}, discretize={}, discretize_size={}, include_feats={}".format(calculate_feats, normalize, discretize, discretize_size, include_feats))
-    
-    import numpy
-    import tensorflow
-    import sys
-
-    from numpy.random import seed
-    seed(42)
-    tensorflow.random.set_seed(42) 
-    logger("Initialized numpy random and tensorflow random seed at 42")
     
     if calculate_feats:
         if train_users is None or test_users is None:
@@ -50,12 +36,7 @@ def featurize(calculate_feats=False, normalize=False, discretize=False, scale=Fa
     else:
         feats_train = load_pickle(pickle_path, "feats_train_original.pkl")
         feats_test = load_pickle(pickle_path, "feats_test_original.pkl")
-        
-    #logger(feats_train.describe())
-    #logger(feats_test.describe())
-        
-    #feats_train, feats_test = select_features(feats_train, feats_test, exclude_feats=exclude_feats, 
-    #                                          normalize=normalize, discretize=discretize,discretize_size=discretize_size)
+
     
     if normalize:
         logger("Normalizing features")
@@ -75,27 +56,6 @@ def featurize(calculate_feats=False, normalize=False, discretize=False, scale=Fa
     
     return feats_train, feats_test
         
-
-
-def scale_features(feats_train, feats_test):
-    
-    #train_features = np.array(feats_train)
-    #test_features = np.array(feats_test)
-    scaler = StandardScaler()
-    train_features = scaler.fit_transform(feats_train)
-    
-    test_features = scaler.transform(feats_test)
-
-    train_features = np.clip(train_features, -5, 5)
-    test_features = np.clip(test_features, -5, 5)
-    
-    logger('Training features shape: {}'.format(train_features.shape))
-    logger('Test features shape: {}'.format(test_features.shape))
-    
-    return train_features, test_features
-
-
-
 
 def calculate_features(X, users, nssi_corpus, include_features=[]):
     
@@ -127,8 +87,7 @@ def calculate_features(X, users, nssi_corpus, include_features=[]):
 
 
 def load_nssi_corpus():
-
-    with open("/datos/erisk/ml/data/nssicorpus.txt", 'r') as file:
+    with open(nssi_file, 'r') as file:
         nssi_corpus_original = file.read()
 
     nssi_corpus = nssi_corpus_original.replace('*', '')
@@ -148,6 +107,7 @@ def load_nssi_corpus():
         new_nssi_corpus[keys[idx]] = new_list
 
     return new_nssi_corpus
+
 
 def select_features(feats_train, feats_test, exclude_feats=[], normalize=False, discretize=False, discretize_size=10):
     feats_train_ret = feats_train.copy()
@@ -169,8 +129,24 @@ def select_features(feats_train, feats_test, exclude_feats=[], normalize=False, 
     
     return feats_train_ret, feats_test_ret
 
-normalize_exceptions = ['char_count', 'word_density']
 
+
+def scale_features(feats_train, feats_test):
+    scaler = StandardScaler()
+    train_features = scaler.fit_transform(feats_train)
+    
+    test_features = scaler.transform(feats_test)
+
+    train_features = np.clip(train_features, -5, 5)
+    test_features = np.clip(test_features, -5, 5)
+    
+    logger('Training features shape: {}'.format(train_features.shape))
+    logger('Test features shape: {}'.format(test_features.shape))
+    
+    return train_features, test_features
+
+
+normalize_exceptions = ['char_count', 'word_density']
 def normalize_features(feats):
     text_length = feats["char_count"]
     
@@ -181,7 +157,6 @@ def normalize_features(feats):
             
     return norm_feats
 
-from sklearn.preprocessing import KBinsDiscretizer
 
 def discretize_features(train_feats, test_feats, size=10, strategy='kmeans', encode='onehot-dense'):
     est = KBinsDiscretizer(n_bins=size, encode=encode, strategy=strategy)

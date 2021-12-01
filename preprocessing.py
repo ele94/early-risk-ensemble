@@ -7,7 +7,6 @@ import nltk
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from numpy import array
-from numpy.random import seed
 from sklearn.model_selection import train_test_split
 from tokenizer import tokenizer as reddit_tokenizer
 #from redditscore.tokenizer import CrazyTokenizer #https://github.com/crazyfrogspb/RedditScore
@@ -47,9 +46,6 @@ R_tokenizer = reddit_tokenizer.TweetTokenizer(preserve_case=False, preserve_url=
 def preprocess():
     
     logger("Starting preprocessing")
-    seed(42)
-    tensorflow.random.set_seed(42) 
-    logger("Initialized numpy random and tensorflow random seed at 42")
     
     train_g_truth = load_golden_truth(train_g_truth_file)
     test_g_truth = load_golden_truth(test_g_truth_file, test_collection=True)
